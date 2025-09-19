@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏋️ Fitness Tracker</title>
+<style>
+/* General resets and font */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Arial', sans-serif; background: #f5f5f5; color: #000; display: flex; flex-direction: column; min-height: 100vh; transition: background 0.3s, color 0.3s; }
+.dark { background: #121212; color: #eee; }
+
+/* Header */
+header { background: #007AFF; color: #fff; padding: 20px; font-size: 24px; text-align: center; font-weight: bold; }
+
+/* Buttons */
+button { padding: 8px 12px; margin: 4px; border: none; border-radius: 8px; cursor: pointer; background: #007AFF; color: #fff; font-weight: bold; transition: background 0.2s; }
+button:hover { background: #005BBB; }
+button.outline { background: #fff; color: #007AFF; border: 2px solid #007AFF; }
+button.outline:hover { background: #005BBB; color: #fff; }
+
+/* Inputs */
+input { padding: 8px; margin: 4px 0; border-radius: 8px; border: 1px solid #ccc; width: 100%; max-width: 300px; }
+.exercise-item input { width: 100px; }
+.exercise-item input[type="number"] { width: 70px; }
+.exercise-item input.invalid { border-color: red; outline: 2px solid red; }
+
+/* Containers */
+.container { display: none; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px; width: 100%; max-width: 400px; margin: 0 auto; }
+
+/* Lists */
+ul { list-style: none; padding: 0; width: 100%; }
+li { margin: 6px 0; display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #e0f0ff; border-radius: 8px; }
+.dark li { background: #1E1E1E; }
+.exercise-item { margin: 5px 0; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.timer { font-size: 28px; font-weight: bold; margin: 10px 0; display: none; color: #007AFF; transition: opacity 0.3s; }
+.timer.active { display: block; opacity: 1; }
+.current-exercise { font-size: 18px; margin: 10px 0; font-weight: bold; color: #FF4500; text-align: center; }
+
+/* Progress bar for rank */
+.rank-bar { width: 100%; background: #ddd; border-radius: 10px; margin: 6px 0; height: 20px; overflow: hidden; }
+.rank-fill { height: 100%; text-align: center; color: #fff; font-weight: bold; line-height: 20px; width: 0; transition: width 0.3s; }
+
+/* Rewards section */
+.rewards { margin: 10px 0; width: 100%; }
+.rewards h4 { margin-bottom: 8px; }
+.badge-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { background: #ffd700; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 14px; font-weight: bold; }
+.dark .badge { background: #ccac00; }
+
+/* Center text */
+h2, h3, h4 { text-align: center; margin: 10px 0; }
+
+/* Responsive for mobile */
+@media (max-width: 500px) {
+  input, button { width: 100%; max-width: none; }
+  .exercise-item input { width: 100%; max-width: none; }
+  .exercise-item input[type="number"] { width: 100%; }
+  li { flex-direction: column; align-items: stretch; }
+  li button { width: 100%; margin: 4px 0; }
+  .badge { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<header>🏋️ Fitness Tracker</header>
+<button onclick="toggleDarkMode()" class="outline">Toggle Dark Mode</button>
+
+<!-- Login/Register -->
+<div class="container" id="loginScreen">
+  <h2>Login / Register</h2>
+  <input type="text" id="username" placeholder="Username">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <button onclick="register()">Register</button>
+</div>
+
+<!-- Main Menu -->
+<div class="container" id="mainMenu">
+  <h2>Welcome, <span id="currentUserName"></span></h2>
+  <p>Title: <span id="userTitle">Fitness Novice</span></p>
+  <p>🔥 Streak: <span id="streakCount">0</span> | Points: <span id="userPoints">0</span></p>
+  <div class="rank-bar"><div class="rank-fill" id="rankFill"></div></div>
+  <div class="rewards">
+    <h4>Your Badges</h4>
+    <div class="badge-list" id="badgeList"></div>
+  </div>
+  <button onclick="showScreen('addWorkoutScreen')">➕ Add Workout</button>
+  <button onclick="showScreen('workoutListScreen')">📋 Workout List</button>
+  <button onclick="showScreen('leaderboardScreen')">🏆 Leaderboard</button>
+</div>
+
+<!-- Add Workout -->
+<div class="container" id="addWorkoutScreen">
+  <h3>Add Workout</h3>
+  <input type="text" id="workoutName" placeholder="Workout Name">
+  <div id="exerciseContainer"></div>
+  <button onclick="addExercise()">➕ Add Exercise</button>
+  <button onclick="saveWorkout()">💾 Save Workout</button>
+  <span id="saveMessage" style="color: green;"></span>
+  <span id="errorMessage" style="color: red;"></span>
+  <h4>Current Exercises:</h4>
+  <ul id="currentExerciseList"></ul>
+  <button onclick="showScreen('mainMenu')">⬅ Back</button>
+</div>
+
+<!-- Workout List -->
+<div class="container" id="workoutListScreen">
+  <h3>Workout List</h3>
+  <ul id="workoutList"></ul>
+  <div class="current-exercise" id="currentExerciseDisplay"></div>
+  <div class="timer" id="timerDisplay"></div>
+  <button id="stopWorkoutButton" onclick="stopWorkout()" style="display: none;">Stop Workout</button>
+  <button onclick="showScreen('mainMenu')">⬅ Back</button>
+</div>
+
+<!-- Leaderboard -->
+<div class="container" id="leaderboardScreen">
+  <h3>Leaderboard</h3>
+  <ul id="leaderboardList"></ul>
+  <button onclick="showScreen('mainMenu')">⬅ Back</button>
+</div>
+
+<script>
+// === Users and workout logic ===
+let users = JSON.parse(localStorage.getItem("users")) || {};
+let currentUser = null;
+let workoutTimer = null;
+let remainingSeconds = 0;
+let currentExerciseIndex = 0;
+let currentWorkout = null;
+
+// Dark mode
+function toggleDarkMode() { document.body.classList.toggle("dark"); }
+
+// Screen management
+function showScreen(id) {
+  document.querySelectorAll('.container').forEach(c => c.style.display = 'none');
+  document.getElementById(id).style.display = 'flex';
+  if (id === 'mainMenu' && currentUser) updateProgress();
+  if (id === 'workoutListScreen') populateWorkoutList();
+  if (id === 'leaderboardScreen') populateLeaderboard();
+  if (id !== 'workoutListScreen') stopWorkout();
+}
+
+// Login/Register
+function login() {
+  const u = document.getElementById("username").value.trim();
+  const p = document.getElementById("password").value.trim();
+  if (users[u] && users[u].password === p) {
+    currentUser = u;
+    // Migrate user data to ensure rewards properties exist
+    users[u] = {
+      ...users[u],
+      points: users[u].points ?? 0,
+      badges: users[u].badges ?? [],
+      title: users[u].title ?? "Fitness Novice"
+    };
+    localStorage.setItem("users", JSON.stringify(users));
+    document.getElementById("currentUserName").textContent = u;
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+    showScreen('mainMenu');
+  } else {
+    alert("Invalid login!");
+  }
+}
+
+function register() {
+  const u = document.getElementById("username").value.trim();
+  const p = document.getElementById("password").value.trim();
+  if (!u || !p) {
+    alert("Enter username & password");
+    return;
+  }
+  if (users[u]) {
+    alert("User exists!");
+    return;
+  }
+  users[u] = { 
+    password: p, 
+    workouts: [], 
+    streak: 0, 
+    lastDate: "", 
+    rank: "Bronze", 
+    points: 0, 
+    badges: [], 
+    title: "Fitness Novice" 
+  };
+  localStorage.setItem("users", JSON.stringify(users));
+  document.getElementById("username").value = "";
+  document.getElementById("password").value = "";
+  alert("Registered! Login now.");
+}
+
+// Exercises
+function addExercise() {
+  const container = document.getElementById("exerciseContainer");
+  const div = document.createElement("div");
+  div.className = "exercise-item";
+  div.innerHTML = `<input placeholder="Exercise" oninput="validateInput(this)">
+    <input type="number" placeholder="Sets" min="1" oninput="validateInput(this)">
+    <input type="number" placeholder="Reps" min="1" oninput="validateInput(this)">
+    <input type="number" placeholder="Duration(s)" min="1" oninput="validateInput(this)">
+    <button onclick="this.parentElement.remove(); updateCurrentExerciseList();">❌</button>`;
+  container.appendChild(div);
+  updateCurrentExerciseList();
+}
+
+function validateInput(input) {
+  if (input.type === "number") {
+    const value = parseFloat(input.value);
+    if (isNaN(value) || value <= 0) {
+      input.classList.add("invalid");
+    } else {
+      input.classList.remove("invalid");
+    }
+  } else {
+    if (input.value.trim() === "") {
+      input.classList.add("invalid");
+    } else {
+      input.classList.remove("invalid");
+    }
+  }
+  updateCurrentExerciseList();
+}
+
+function updateCurrentExerciseList() {
+  const list = document.getElementById("currentExerciseList");
+  list.innerHTML = "";
+  document.querySelectorAll(".exercise-item").forEach(d => {
+    const ex = d.children[0].value;
+    const sets = d.children[1].value;
+    const reps = d.children[2].value;
+    const dur = d.children[3].value;
+    if (ex && sets && reps && dur && parseInt(sets) > 0 && parseInt(reps) > 0 && parseInt(dur) > 0) {
+      const li = document.createElement("li");
+      li.textContent = `${ex} - ${sets}x${reps} @ ${dur}s`;
+      list.appendChild(li);
+    }
+  });
+}
+
+function saveWorkout() {
+  if (!currentUser) {
+    document.getElementById("errorMessage").textContent = "Login first!";
+    setTimeout(() => document.getElementById("errorMessage").textContent = "", 3000);
+    return;
+  }
+  const name = document.getElementById("workoutName").value.trim();
+  if (!name) {
+    document.getElementById("errorMessage").textContent = "Enter workout name!";
+    setTimeout(() => document.getElementById("errorMessage").textContent = "", 3000);
+    return;
+  }
+  const exercises = [];
+  let valid = true;
+  let errorMsg = "";
+  document.querySelectorAll(".exercise-item").forEach((d, i) => {
+    const ex = d.children[0].value.trim();
+    const sets = parseInt(d.children[1].value);
+    const reps = parseInt(d.children[2].value);
+    const duration = parseInt(d.children[3].value);
+    if (ex || sets || reps || duration) {
+      if (!ex || isNaN(sets) || sets <= 0 || isNaN(reps) || reps <= 0 || isNaN(duration) || duration <= 0) {
+        valid = false;
+        errorMsg = `Exercise ${i + 1}: All fields must be filled with valid, positive numbers!`;
+        d.children[0].classList.add("invalid");
+        if (isNaN(sets) || sets <= 0) d.children[1].classList.add("invalid");
+        if (isNaN(reps) || reps <= 0) d.children[2].classList.add("invalid");
+        if (isNaN(duration) || duration <= 0) d.children[3].classList.add("invalid");
+      } else {
+        exercises.push({ exercise: ex, sets, reps, duration });
+        d.children[0].classList.remove("invalid");
+        d.children[1].classList.remove("invalid");
+        d.children[2].classList.remove("invalid");
+        d.children[3].classList.remove("invalid");
+      }
+    }
+  });
+  if (!valid) {
+    document.getElementById("errorMessage").textContent = errorMsg;
+    setTimeout(() => document.getElementById("errorMessage").textContent = "", 5000);
+    return;
+  }
+  if (exercises.length === 0) {
+    document.getElementById("errorMessage").textContent = "Add at least one valid exercise!";
+    setTimeout(() => document.getElementById("errorMessage").textContent = "", 3000);
+    return;
+  }
+  users[currentUser].workouts.push({ name, exercises });
+  localStorage.setItem("users", JSON.stringify(users));
+  document.getElementById("saveMessage").textContent = "Workout saved!";
+  document.getElementById("errorMessage").textContent = "";
+  document.getElementById("workoutName").value = "";
+  document.getElementById("exerciseContainer").innerHTML = "";
+  updateCurrentExerciseList();
+  setTimeout(() => {
+    document.getElementById("saveMessage").textContent = "";
+    document.getElementById("errorMessage").textContent = "";
+  }, 3000);
+}
+
+// Workout List
+function populateWorkoutList() {
+  if (!currentUser) return;
+  const list = document.getElementById("workoutList");
+  list.innerHTML = "";
+  users[currentUser].workouts.forEach((w, i) => {
+    const li = document.createElement("li");
+    const btnStart = document.createElement("button");
+    btnStart.textContent = w.name;
+    btnStart.onclick = () => startWorkout(w);
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "❌";
+    delBtn.onclick = () => {
+      users[currentUser].workouts.splice(i, 1);
+      localStorage.setItem("users", JSON.stringify(users));
+      populateWorkoutList();
+      stopWorkout();
+    };
+    li.appendChild(btnStart);
+    li.appendChild(delBtn);
+    list.appendChild(li);
+  });
+}
+
+// Timer functions
+function startWorkout(workout) {
+  currentWorkout = workout;
+  currentExerciseIndex = 0;
+  remainingSeconds = workout.exercises[0].sets * workout.exercises[0].duration;
+  updateExerciseDisplay();
+  document.getElementById("timerDisplay").classList.add("active");
+  document.getElementById("stopWorkoutButton").style.display = "inline-block";
+  document.getElementById("timerDisplay").textContent = formatTime(remainingSeconds);
+  clearInterval(workoutTimer);
+  workoutTimer = setInterval(() => {
+    remainingSeconds--;
+    document.getElementById("timerDisplay").textContent = formatTime(remainingSeconds);
+    if (remainingSeconds <= 0) {
+      currentExerciseIndex++;
+      if (currentExerciseIndex < workout.exercises.length) {
+        remainingSeconds = workout.exercises[currentExerciseIndex].sets * workout.exercises[currentExerciseIndex].duration;
+        updateExerciseDisplay();
+      } else {
+        clearInterval(workoutTimer);
+        document.getElementById("timerDisplay").classList.remove("active");
+        document.getElementById("stopWorkoutButton").style.display = "none";
+        document.getElementById("currentExerciseDisplay").textContent = "";
+        // Award badge for first workout
+        if (!users[currentUser].badges.includes("First Workout") && users[currentUser].workouts.length === 1) {
+          users[currentUser].badges.push("First Workout");
+          alert("Congratulations! You earned the 'First Workout' badge!");
+          localStorage.setItem("users", JSON.stringify(users));
+          updateProgress();
+        }
+        alert("Workout complete!");
+        updateStreak();
+      }
+    }
+  }, 1000);
+}
+
+function updateExerciseDisplay() {
+  const ex = currentWorkout.exercises[currentExerciseIndex];
+  document.getElementById("currentExerciseDisplay").textContent = `Current: ${ex.exercise} - ${ex.sets}x${ex.reps} @ ${ex.duration}s`;
+}
+
+function stopWorkout() {
+  clearInterval(workoutTimer);
+  document.getElementById("timerDisplay").classList.remove("active");
+  document.getElementById("stopWorkoutButton").style.display = "none";
+  document.getElementById("currentExerciseDisplay").textContent = "";
+  currentWorkout = null;
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// Leaderboard
+function populateLeaderboard() {
+  const list = document.getElementById("leaderboardList");
+  list.innerHTML = "";
+  const sorted = Object.entries(users).sort((a, b) => b[1].streak - a[1].streak);
+  sorted.forEach(([name, data]) => {
+    const li = document.createElement("li");
+    li.textContent = `${name} - Streak: ${data.streak} | Rank: ${data.rank} | Points: ${data.points || 0}`;
+    list.appendChild(li);
+  });
+}
+
+// Streak/Rank/Rewards
+function updateProgress() {
+  const user = users[currentUser];
+  document.getElementById("streakCount").textContent = user.streak;
+  document.getElementById("userPoints").textContent = user.points || 0;
+  document.getElementById("userTitle").textContent = user.title || "Fitness Novice";
+  const fill = document.getElementById("rankFill");
+  let percent = 0, color = "#cd7f32"; // bronze
+  if (user.rank === "Silver") { percent = 50; color = "#c0c0c0"; }
+  if (user.rank === "Gold") { percent = 100; color = "#ffd700"; }
+  fill.style.width = percent + "%";
+  fill.style.background = color;
+  fill.textContent = user.rank;
+  // Update badge list
+  const badgeList = document.getElementById("badgeList");
+  badgeList.innerHTML = "";
+  (user.badges || []).forEach(badge => {
+    const badgeEl = document.createElement("span");
+    badgeEl.className = "badge";
+    badgeEl.textContent = badge;
+    badgeList.appendChild(badgeEl);
+  });
+}
+
+function updateStreak() {
+  const today = new Date().toDateString();
+  const user = users[currentUser];
+  const lastDate = user.lastDate;
+  if (lastDate !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const oldStreak = user.streak;
+    user.streak = (lastDate === yesterday.toDateString()) ? user.streak + 1 : 1;
+    // Award points for streak
+    if (user.streak > oldStreak) {
+      user.points = (user.points || 0) + 50;
+      alert(`Streak increased to ${user.streak}! You earned 50 points!`);
+    }
+    // Update rank
+    const oldRank = user.rank;
+    user.rank = (user.streak >= 30) ? 'Gold' : (user.streak >= 14) ? 'Silver' : 'Bronze';
+    // Update title
+    user.title = user.title || "Fitness Novice";
+    user.title = (user.rank === "Gold") ? "Gym Master" : (user.rank === "Silver") ? "Fitness Pro" : "Fitness Novice";
+    user.badges = user.badges || [];
+    // Award streak-based badges
+    if (user.streak === 5 && !user.badges.includes("5-Day Streak")) {
+      user.badges.push("5-Day Streak");
+      alert("Congratulations! You earned the '5-Day Streak' badge!");
+    }
+    if (user.streak === 10 && !user.badges.includes("10-Day Streak")) {
+      user.badges.push("10-Day Streak");
+      alert("Congratulations! You earned the '10-Day Streak' badge!");
+    }
+    if (user.streak === 20 && !user.badges.includes("20-Day Streak")) {
+      user.badges.push("20-Day Streak");
+      alert("Congratulations! You earned the '20-Day Streak' badge!");
+    }
+    // Award rank-based badges
+    if (user.rank === "Silver" && oldRank !== "Silver" && !user.badges.includes("Silver Rank")) {
+      user.badges.push("Silver Rank");
+      alert("Congratulations! You reached Silver rank and earned the 'Silver Rank' badge!");
+    }
+    if (user.rank === "Gold" && oldRank !== "Gold" && !user.badges.includes("Gold Rank")) {
+      user.badges.push("Gold Rank");
+      alert("Congratulations! You reached Gold rank and earned the 'Gold Rank' badge!");
+    }
+    user.lastDate = today;
+    users[currentUser] = user;
+    localStorage.setItem("users", JSON.stringify(users));
+    updateProgress();
+  }
+}
+
+// On load
+showScreen('loginScreen');
+</script>
+
+</body>
+</html>
